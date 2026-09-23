@@ -1,4 +1,4 @@
-package scene
+package engine
 
 type SceneResult struct {
 	NextScene IScene

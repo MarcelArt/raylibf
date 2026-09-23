@@ -1,7 +1,6 @@
-package game
+package engine
 
 import (
-	"github.com/MarcelArt/raylibf/pkg/engine/scene"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
@@ -11,10 +10,10 @@ type Game struct {
 	Height    int32
 	TargetFPS int32
 
-	scene scene.IScene
+	scene IScene
 }
 
-func New(title string, width int32, height int32, targetFPS int32) *Game {
+func NewGame(title string, width int32, height int32, targetFPS int32) *Game {
 	return &Game{
 		Title:     title,
 		Width:     width,
@@ -23,7 +22,7 @@ func New(title string, width int32, height int32, targetFPS int32) *Game {
 	}
 }
 
-func (g *Game) SetActiveScene(s scene.IScene) {
+func (g *Game) SetActiveScene(s IScene) {
 	g.scene = s
 }
 
@@ -42,7 +41,7 @@ func (g *Game) Start() {
 
 		rl.BeginDrawing()
 
-		rl.ClearBackground(rl.RayWhite)
+		rl.DrawFPS(0, 0)
 
 		// Scene Draw
 		g.scene.Draw()
