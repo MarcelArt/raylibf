@@ -1,6 +1,8 @@
 package entities
 
 import (
+	"log"
+
 	rl "github.com/gen2brain/raylib-go/raylib"
 
 	"github.com/MarcelArt/raylibf/pkg/engine"
@@ -11,7 +13,12 @@ const (
 	playerThrust        = float32(350) // px/s² — how hard the engine pushes
 	playerDrag          = float32(0.5) // fraction of velocity lost per second
 	playerMaxSpeed      = float32(400) // px/s cap
+	size                = float32(20)
 )
+
+type PlayerCommand struct {
+	IsShooting bool
+}
 
 type PlayerEntity struct {
 	engine.Entity
@@ -20,59 +27,72 @@ type PlayerEntity struct {
 	Velocity rl.Vector2
 }
 
-// Draw implements [engine.IEntity].
-func (p *PlayerEntity) Draw() {
-	p.drawPlayer()
+func (e *PlayerEntity) Draw() {
+	e.drawPlayer()
 }
 
-// Update implements [engine.IEntity].
-func (p *PlayerEntity) Update() {
-	dt := rl.GetFrameTime()
+func (e *PlayerEntity) Update(dt float32) PlayerCommand {
+	var cmd PlayerCommand
 
-	p.playerMovement(dt)
+	e.playerMovement(dt)
+	e.shoot(&cmd)
+
+	return cmd
+}
+
+func (e *PlayerEntity) Nose() rl.Vector2 {
+	return e.localToWorld(rl.NewVector2(0, -size))
+}
+
+func (e *PlayerEntity) localToWorld(v rl.Vector2) rl.Vector2 {
+	return rl.Vector2Add(e.Position, rl.Vector2Rotate(v, e.Rotation))
 }
 
 // drawPlayer draws the classic Asteroids ship: a wireframe triangle pointing up.
-func (p *PlayerEntity) drawPlayer() {
-	const size = float32(20)
-
+func (e *PlayerEntity) drawPlayer() {
 	nose := rl.NewVector2(0, -size)
 	l := rl.NewVector2(-size*0.6, size)
 	r := rl.NewVector2(size*0.6, size)
 
 	// Rotate around origin, then translate into world space
-	world := func(v rl.Vector2) rl.Vector2 {
-		v = rl.Vector2Rotate(v, p.Rotation)
-		return rl.NewVector2(p.Position.X+v.X, p.Position.Y+v.Y)
-	}
+	// world := func(v rl.Vector2) rl.Vector2 {
+	// 	v = rl.Vector2Rotate(v, e.Rotation)
+	// 	return rl.NewVector2(e.Position.X+v.X, e.Position.Y+v.Y)
+	// }
 
-	rl.DrawTriangleLines(world(nose), world(l), world(r), rl.White)
+	rl.DrawTriangleLines(e.localToWorld(nose), e.localToWorld(l), e.localToWorld(r), rl.White)
 
 }
 
-func (p *PlayerEntity) playerMovement(dt float32) {
+func (e *PlayerEntity) playerMovement(dt float32) {
 	if rl.IsKeyDown(rl.KeyRight) || rl.IsKeyDown(rl.KeyD) {
-		p.Rotation += playerRotationSpeed * dt
+		e.Rotation += playerRotationSpeed * dt
 	}
 	if rl.IsKeyDown(rl.KeyLeft) || rl.IsKeyDown(rl.KeyA) {
-		p.Rotation -= playerRotationSpeed * dt
+		e.Rotation -= playerRotationSpeed * dt
 	}
 
 	if rl.IsKeyDown(rl.KeyUp) || rl.IsKeyDown(rl.KeyW) {
-		dir := rl.Vector2Rotate(rl.NewVector2(0, -1), p.Rotation)
-		p.Velocity = rl.Vector2Add(p.Velocity, rl.Vector2Scale(dir, playerThrust*dt))
+		dir := rl.Vector2Rotate(rl.NewVector2(0, -1), e.Rotation)
+		e.Velocity = rl.Vector2Add(e.Velocity, rl.Vector2Scale(dir, playerThrust*dt))
 	}
 
 	// --- 2. drag: exponential decay (see tuning notes) ---
-	p.Velocity = rl.Vector2Scale(p.Velocity, 1-playerDrag*dt)
+	e.Velocity = rl.Vector2Scale(e.Velocity, 1-playerDrag*dt)
 
 	// --- 3. clamp to max speed ---
-	if speed := rl.Vector2Length(p.Velocity); speed > playerMaxSpeed {
-		p.Velocity = rl.Vector2Scale(p.Velocity, playerMaxSpeed/speed)
+	if speed := rl.Vector2Length(e.Velocity); speed > playerMaxSpeed {
+		e.Velocity = rl.Vector2Scale(e.Velocity, playerMaxSpeed/speed)
 	}
 
 	// --- 4. integrate: position += velocity * dt ---
-	p.Position = rl.Vector2Add(p.Position, rl.Vector2Scale(p.Velocity, dt))
+	e.Position = rl.Vector2Add(e.Position, rl.Vector2Scale(e.Velocity, dt))
 }
 
-var _ engine.IEntity = &PlayerEntity{}
+func (e *PlayerEntity) shoot(cmd *PlayerCommand) {
+	cmd.IsShooting = false
+	if rl.IsKeyPressed(rl.KeySpace) {
+		cmd.IsShooting = true
+		log.Println("shot")
+	}
+}
