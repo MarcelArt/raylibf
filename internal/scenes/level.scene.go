@@ -3,6 +3,7 @@ package scenes
 import (
 	"math/rand/v2"
 	"slices"
+	"strconv"
 
 	"github.com/MarcelArt/raylibf/internal/entities"
 	"github.com/MarcelArt/raylibf/pkg/engine"
@@ -14,11 +15,12 @@ const (
 )
 
 type LevelScene struct {
-	Player                   *entities.PlayerEntity
-	asteroidSpawnTimeCounter float32
+	Player *entities.PlayerEntity
 
-	bullets   []*entities.BulletEntity
-	asteroids []*entities.AsteroidEntity
+	asteroidSpawnTimeCounter float32
+	bullets                  []*entities.BulletEntity
+	asteroids                []*entities.AsteroidEntity
+	score                    uint
 }
 
 func (s *LevelScene) Draw() {
@@ -33,6 +35,8 @@ func (s *LevelScene) Draw() {
 	for _, asteroid := range s.asteroids {
 		asteroid.Draw()
 	}
+
+	s.drawScore()
 }
 
 func (s *LevelScene) GetID() string {
@@ -120,6 +124,7 @@ func (s *LevelScene) checkBulletAsteroidCollisions() {
 				destroyFuncs = append(destroyFuncs, func() {
 					s.bullets = slices.Delete(s.bullets, b, b+1)
 					s.asteroids = slices.Delete(s.asteroids, a, a+1)
+					s.score++
 				})
 			}
 		}
@@ -128,6 +133,15 @@ func (s *LevelScene) checkBulletAsteroidCollisions() {
 	for _, df := range destroyFuncs {
 		df()
 	}
+}
+
+func (s *LevelScene) drawScore() {
+	width := rl.GetScreenWidth()
+	// height := rl.GetScreenHeight()
+
+	score := strconv.Itoa(int(s.score))
+
+	rl.DrawText(score, int32(width)/2, 0, 36, rl.White)
 }
 
 var _ engine.IScene = &LevelScene{}
