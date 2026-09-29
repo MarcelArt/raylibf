@@ -2,6 +2,7 @@ package scenes
 
 import (
 	"math/rand/v2"
+	"slices"
 
 	"github.com/MarcelArt/raylibf/internal/entities"
 	"github.com/MarcelArt/raylibf/pkg/engine"
@@ -54,6 +55,8 @@ func (s *LevelScene) Update() engine.SceneResult {
 		asteroid.Update(dt)
 	}
 
+	s.checkBulletAsteroidCollisions()
+
 	return res
 }
 
@@ -71,6 +74,10 @@ func (s *LevelScene) handlePlayerCMD(cmd entities.PlayerCommand) {
 }
 
 func (s *LevelScene) spawnAsteroid(dt float32) {
+	if s.Player == nil {
+		return
+	}
+
 	if s.asteroidSpawnTimeCounter < asteroidSpawnRate {
 		s.asteroidSpawnTimeCounter += dt
 		return
@@ -102,6 +109,25 @@ func (s *LevelScene) spawnAsteroid(dt float32) {
 		Health:   1,
 	})
 	s.asteroidSpawnTimeCounter = 0
+}
+
+func (s *LevelScene) checkBulletAsteroidCollisions() {
+	destroyFuncs := make([]func(), 0)
+
+	for b, bullet := range s.bullets {
+		for a, asteroid := range s.asteroids {
+			if rl.CheckCollisionCircles(bullet.Position, entities.BulletRadius, asteroid.Position, asteroid.Radius) {
+				destroyFuncs = append(destroyFuncs, func() {
+					s.bullets = slices.Delete(s.bullets, b, b+1)
+					s.asteroids = slices.Delete(s.asteroids, a, a+1)
+				})
+			}
+		}
+	}
+
+	for _, df := range destroyFuncs {
+		df()
+	}
 }
 
 var _ engine.IScene = &LevelScene{}

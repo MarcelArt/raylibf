@@ -7,7 +7,7 @@ import (
 
 const (
 	bulletSpeed  float32 = 300
-	bulletRadius float32 = 3
+	BulletRadius float32 = 3
 )
 
 type BulletEntity struct {
@@ -18,7 +18,7 @@ type BulletEntity struct {
 }
 
 func (e *BulletEntity) Draw() {
-	rl.DrawCircleV(e.Position, bulletRadius, rl.White)
+	rl.DrawCircleV(e.Position, BulletRadius, rl.White)
 }
 
 func (e *BulletEntity) Update(dt float32) {
