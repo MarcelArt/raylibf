@@ -14,6 +14,13 @@ const (
 	asteroidSpawnRate = 2
 )
 
+type gameState uint8
+
+const (
+	play gameState = iota
+	gameOver
+)
+
 type LevelScene struct {
 	Player *entities.PlayerEntity
 
@@ -21,19 +28,22 @@ type LevelScene struct {
 	bullets                  []*entities.BulletEntity
 	asteroids                []*entities.AsteroidEntity
 	score                    uint
+	gameState                gameState
 }
 
 func (s *LevelScene) Draw() {
 	rl.ClearBackground(rl.Black)
 
-	s.Player.Draw()
+	if s.gameState == play {
+		s.Player.Draw()
 
-	for _, bullet := range s.bullets {
-		bullet.Draw()
-	}
+		for _, bullet := range s.bullets {
+			bullet.Draw()
+		}
 
-	for _, asteroid := range s.asteroids {
-		asteroid.Draw()
+		for _, asteroid := range s.asteroids {
+			asteroid.Draw()
+		}
 	}
 
 	s.drawScore()
@@ -47,19 +57,21 @@ func (s *LevelScene) Update() engine.SceneResult {
 	var res engine.SceneResult
 	dt := rl.GetFrameTime()
 
-	playerCMD := s.Player.Update(dt)
-	s.handlePlayerCMD(playerCMD)
+	if s.gameState == play {
+		playerCMD := s.Player.Update(dt)
+		s.handlePlayerCMD(playerCMD)
 
-	for _, bullet := range s.bullets {
-		bullet.Update(dt)
+		for _, bullet := range s.bullets {
+			bullet.Update(dt)
+		}
+
+		s.spawnAsteroid(dt)
+		for _, asteroid := range s.asteroids {
+			asteroid.Update(dt)
+		}
+
+		s.handleCollisions()
 	}
-
-	s.spawnAsteroid(dt)
-	for _, asteroid := range s.asteroids {
-		asteroid.Update(dt)
-	}
-
-	s.checkBulletAsteroidCollisions()
 
 	return res
 }
@@ -133,6 +145,16 @@ func (s *LevelScene) checkBulletAsteroidCollisions() {
 	for _, df := range destroyFuncs {
 		df()
 	}
+}
+
+// func (s *LevelScene) checkPlayerAsteroidCollisions() {
+// 	for a, asteroid := range s.asteroids {
+
+// 	}
+// }
+
+func (s *LevelScene) handleCollisions() {
+	s.checkBulletAsteroidCollisions()
 }
 
 func (s *LevelScene) drawScore() {
