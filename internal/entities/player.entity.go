@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	PlayerCollisionRadius = size * 0.7
+
 	playerRotationSpeed = float32(4)
 	playerThrust        = float32(350) // px/s² — how hard the engine pushes
 	playerDrag          = float32(0.5) // fraction of velocity lost per second

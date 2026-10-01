@@ -1,17 +1,20 @@
 package scenes
 
 import (
+	"encoding/json/v2"
 	"math/rand/v2"
 	"slices"
 	"strconv"
 
 	"github.com/MarcelArt/raylibf/internal/entities"
+	"github.com/MarcelArt/raylibf/internal/models"
 	"github.com/MarcelArt/raylibf/pkg/engine"
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const (
 	asteroidSpawnRate = 2
+	saveFileDir       = "asteroid/save.json"
 )
 
 type gameState uint8
@@ -29,6 +32,28 @@ type LevelScene struct {
 	asteroids                []*entities.AsteroidEntity
 	score                    uint
 	gameState                gameState
+	highScore                uint
+}
+
+func NewLevelScene(player *entities.PlayerEntity) *LevelScene {
+	var highScore uint
+	saveFileData, err := engine.LoadGame(saveFileDir)
+	if err == nil {
+		var saveFile models.SaveFile
+		json.Unmarshal(saveFileData, &saveFile)
+		highScore = saveFile.HighScore
+	}
+
+	return &LevelScene{
+		Player: player,
+
+		asteroidSpawnTimeCounter: 0,
+		bullets:                  make([]*entities.BulletEntity, 0),
+		asteroids:                make([]*entities.AsteroidEntity, 0),
+		score:                    0,
+		gameState:                play,
+		highScore:                highScore,
+	}
 }
 
 func (s *LevelScene) Draw() {
@@ -44,9 +69,14 @@ func (s *LevelScene) Draw() {
 		for _, asteroid := range s.asteroids {
 			asteroid.Draw()
 		}
+		s.drawScore()
+	} else {
+		width := rl.GetScreenWidth()
+		height := rl.GetScreenHeight()
+		rl.DrawText("Game Over", int32(width/2-100), int32(height/2-50), 36, rl.White)
+		rl.DrawText("Press R to restart", int32(width/2-150), int32(height/2), 24, rl.White)
 	}
 
-	s.drawScore()
 }
 
 func (s *LevelScene) GetID() string {
@@ -71,6 +101,10 @@ func (s *LevelScene) Update() engine.SceneResult {
 		}
 
 		s.handleCollisions()
+	} else {
+		if rl.IsKeyPressed(rl.KeyR) {
+			s.restart()
+		}
 	}
 
 	return res
@@ -128,33 +162,43 @@ func (s *LevelScene) spawnAsteroid(dt float32) {
 }
 
 func (s *LevelScene) checkBulletAsteroidCollisions() {
-	destroyFuncs := make([]func(), 0)
-
-	for b, bullet := range s.bullets {
-		for a, asteroid := range s.asteroids {
+	for _, bullet := range s.bullets {
+		if !bullet.IsActive {
+			continue
+		}
+		for _, asteroid := range s.asteroids {
+			if !asteroid.IsActive {
+				continue
+			}
 			if rl.CheckCollisionCircles(bullet.Position, entities.BulletRadius, asteroid.Position, asteroid.Radius) {
-				destroyFuncs = append(destroyFuncs, func() {
-					s.bullets = slices.Delete(s.bullets, b, b+1)
-					s.asteroids = slices.Delete(s.asteroids, a, a+1)
-					s.score++
-				})
+				bullet.IsActive = false
+				asteroid.IsActive = false
+				s.score++
+				break
 			}
 		}
 	}
 
-	for _, df := range destroyFuncs {
-		df()
+	s.bullets = slices.DeleteFunc(s.bullets, func(b *entities.BulletEntity) bool {
+		return !b.IsActive
+	})
+	s.asteroids = slices.DeleteFunc(s.asteroids, func(a *entities.AsteroidEntity) bool {
+		return !a.IsActive
+	})
+}
+
+func (s *LevelScene) checkPlayerAsteroidCollisions() {
+	for _, asteroid := range s.asteroids {
+		if rl.CheckCollisionCircles(asteroid.Position, asteroid.Radius, s.Player.Position, entities.PlayerCollisionRadius) {
+			s.loseGame()
+			return
+		}
 	}
 }
 
-// func (s *LevelScene) checkPlayerAsteroidCollisions() {
-// 	for a, asteroid := range s.asteroids {
-
-// 	}
-// }
-
 func (s *LevelScene) handleCollisions() {
 	s.checkBulletAsteroidCollisions()
+	s.checkPlayerAsteroidCollisions()
 }
 
 func (s *LevelScene) drawScore() {
@@ -164,6 +208,38 @@ func (s *LevelScene) drawScore() {
 	score := strconv.Itoa(int(s.score))
 
 	rl.DrawText(score, int32(width)/2, 0, 36, rl.White)
+}
+
+func (s *LevelScene) loseGame() {
+	s.gameState = gameOver
+	s.Player = nil
+	s.asteroids = make([]*entities.AsteroidEntity, 0)
+	s.bullets = make([]*entities.BulletEntity, 0)
+
+	if s.score > s.highScore {
+		saveFile := models.SaveFile{
+			HighScore: s.score,
+		}
+		saveFileData, err := json.Marshal(saveFile)
+		if err == nil {
+			engine.SaveGame(saveFileDir, saveFileData)
+		}
+		s.highScore = s.score
+	}
+}
+
+func (s *LevelScene) restart() {
+	width := rl.GetScreenWidth()
+	height := rl.GetScreenHeight()
+
+	s.gameState = play
+	s.score = 0
+	s.Player = &entities.PlayerEntity{
+		Position: rl.NewVector2(float32(width)/2, float32(height)/2),
+		IsActive: true,
+	}
+	s.asteroids = make([]*entities.AsteroidEntity, 0)
+	s.bullets = make([]*entities.BulletEntity, 0)
 }
 
 var _ engine.IScene = &LevelScene{}
